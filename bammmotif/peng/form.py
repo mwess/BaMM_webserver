@@ -1,8 +1,33 @@
 from django.conf import settings
-from .forms import PredictionExampleForm
+from bammmotif.forms import PredictionExampleForm
 from django import forms
-from .models import PengJob_deprecated
-from .command_line import ShootPengModule
+from bammmotif.models import PengJob_deprecated, Peng
+
+
+
+
+
+class PengFormMeta(forms.ModelForm):
+
+    class Meta:
+        model = Peng
+        fields = (
+            'fasta_file', 'bg_sequences',
+            'pattern_length', 'zscore_threshold', 'count_threshold', 'bg_model_order',
+            'strand', 'objective_function', 'no_em'
+
+        )
+
+    def __init__(self, *args, **kwargs):
+        super(PengFormMeta, self).__init__(*args, **kwargs)
+        for field in self.fields:
+            help_text = self.fields[field].help_text
+            self.fields[field].help_text = None
+            if help_text != '':
+                self.fields[field].widget.attrs.update({'class': 'has-popover',
+                                                        'data-content': help_text,
+                                                        'data-placement': 'right',
+                                                        'data-container': 'body'})
 
 
 class PengForm(forms.ModelForm):
@@ -13,10 +38,7 @@ class PengForm(forms.ModelForm):
         fields = (
             'fasta_file', 'bg_sequences',
             'pattern_length', 'zscore_threshold', 'count_threshold', 'bg_model_order',
-            'strand', 'objective_function', 'enrich_pseudocount_factor', 'no_em',
-            'em_saturation_threshold', 'em_threshold', 'em_max_iterations', 'no_merging',
-            'bit_factor_threshold', 'use_default_pwm', 'pwm_pseudo_counts',
-            'job_name'
+            'strand', 'objective_function', 'no_em', 'job_name'
         )
 
     def __init__(self, *args, **kwargs):
@@ -63,6 +85,10 @@ def get_valid_peng_form(post, files, user, mode):
         valid = True
         args['form'] = PengExampleForm()
         return PredictionExampleForm(post, files), valid, args
+    #print("get valid peng form")
+    #print(post.__dir__())
+    #print("files:")
+    #print(files)
     form = PengForm(post, files)
     if not form.is_valid():
         print("get_valid_peng_form second if")
@@ -70,7 +96,39 @@ def get_valid_peng_form(post, files, user, mode):
         args['type'] = "OK"
         args['message'] = "OK"
         return form, valid, args
-    max_size = settings.MAX_UPLOAD_SIZE if user.is_authenticated() else settings.MAX_UPLOAD_SIZE_ANONYMOUS
+    max_size = settings.MAX_UPLOAD_SIZE if user.is_authenticated else settings.MAX_UPLOAD_SIZE_ANONYMOUS
+    print("FORM IS VALID")
+    # Test if data maximum size is not reached
+    content = form.cleaned_data['fasta_file']
+    if content._size > int(max_size):
+        print("get_valid_peng_form third if")
+        args['form'] = PengForm()
+        args['type'] = "FileSize"
+        args['message'] = max_size
+        return form, valid, args
+    valid = True
+    return form, valid, args
+
+def get_valid_peng_form_meta(post, files, user, mode):
+    print("post", post, "files", files)
+    args = {}
+    valid = False
+    if mode == 'example':
+        valid = True
+        args['form'] = PengExampleForm()
+        return PredictionExampleForm(post, files), valid, args
+    #print("get valid peng form")
+    #print(post.__dir__())
+    #print("files:")
+    #print(files)
+    form = PengFormMeta(post, files)
+    if not form.is_valid():
+        print("get_valid_peng_form_meta second if")
+        args['form'] = PengFormMeta()
+        args['type'] = "OK"
+        args['message'] = "OK"
+        return form, valid, args
+    max_size = settings.MAX_UPLOAD_SIZE if user.is_authenticated else settings.MAX_UPLOAD_SIZE_ANONYMOUS
     print("FORM IS VALID")
     # Test if data maximum size is not reached
     content = form.cleaned_data['fasta_file']
